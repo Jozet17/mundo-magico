@@ -350,13 +350,14 @@ async function iniciarLibro() {
     const libro = document.querySelector('.libro');
     if (!libro) return;
 
-    // Cargar desde servidor primero
+    let archivosServidor = [];
+
     try {
         const res = await fetch('/media');
-        const archivos = await res.json();
-        if (archivos.length > 0) {
-            fotos = archivos.map(a => `img/galeria/${a.nombre}`);
-            frases = archivos.map(a => a.texto || frases_default[archivos.indexOf(a) % frases_default.length]);
+        archivosServidor = await res.json();
+        if (archivosServidor.length > 0) {
+            fotos = archivosServidor.map(a => `img/galeria/${a.nombre}`);
+            frases = archivosServidor.map(a => a.texto || frases_default[archivosServidor.indexOf(a) % frases_default.length]);
         }
     } catch(e) {
         console.log('Usando fotos locales');
@@ -368,16 +369,17 @@ async function iniciarLibro() {
         pag.style.zIndex = fotos.length - i;
         const nombre = src.split('/').pop();
         const esVideo = ['mp4','mov','webm'].includes(nombre.split('.').pop().toLowerCase());
+        const urlArchivo = archivosServidor[i]?.url;
 
         if (esVideo) {
             pag.innerHTML = `
                 <video playsinline controls style="
                     width:100%; height:100%; object-fit:cover; display:block;
                 ">
-                    <source src="${archivos[i].url || '/static/' + src}">
+                    <source src="${urlArchivo || '/static/' + src}">
                 </video>`;
         } else {
-            pag.innerHTML = `<img src="${archivos[i].url || '/static/' + src + '?t=' + Date.now()}" alt="foto ${i+1}">`;
+            pag.innerHTML = `<img src="${urlArchivo || '/static/' + src + '?t=' + Date.now()}" alt="foto ${i+1}">`;
         }
 
         pag.dataset.nombre = nombre;
