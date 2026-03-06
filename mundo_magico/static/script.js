@@ -374,10 +374,10 @@ async function iniciarLibro() {
                 <video playsinline controls style="
                     width:100%; height:100%; object-fit:cover; display:block;
                 ">
-                    <source src="/static/${src}">
+                    <source src="${archivos[i].url || '/static/' + src}">
                 </video>`;
         } else {
-            pag.innerHTML = `<img src="/static/${src}?t=${Date.now()}" alt="foto ${i+1}">`;
+            pag.innerHTML = `<img src="${archivos[i].url || '/static/' + src + '?t=' + Date.now()}" alt="foto ${i+1}">`;
         }
 
         pag.dataset.nombre = nombre;
@@ -778,10 +778,10 @@ async function reiniciarTodo() {
                 <video playsinline controls style="
                     width:100%; height:100%; object-fit:cover; display:block;
                 ">
-                    <source src="/static/img/galeria/${archivo.nombre}">
+                    <source src="${archivo.url || '/static/img/galeria/' + archivo.nombre}">
                 </video>`;
         } else {
-            pag.innerHTML = `<img src="/static/img/galeria/${archivo.nombre}?t=${Date.now()}" alt="foto ${i+1}">`;
+            pag.innerHTML = `<img src="${archivo.url || '/static/img/galeria/' + archivo.nombre + '?t=' + Date.now()}" alt="foto ${i+1}">`;
         }
 
         let timer = null;
