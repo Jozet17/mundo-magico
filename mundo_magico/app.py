@@ -82,7 +82,8 @@ def subir():
         return jsonify({"ok": True, "archivos": subidos})
 
     except Exception as e:
-        print("ERROR al subir:", e)
+        import traceback
+        print("ERROR al subir:", traceback.format_exc())
         return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route("/media")
