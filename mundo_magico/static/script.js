@@ -732,16 +732,43 @@ async function subirArchivos() {
 
     status.textContent = 'Subiendo... ✨';
 
-    const formData = new FormData();
-    Array.from(input.files).forEach(f => formData.append('archivos', f));
-    if (texto) formData.append('texto', texto);
+    const archivos = Array.from(input.files);
+    const subidos = [];
 
     try {
-        const res = await fetch('/subir', { method: 'POST', body: formData });
-        const data = await res.json();
+        for (const archivo of archivos) {
+            const formData = new FormData();
+            formData.append('file', archivo);
+            formData.append('upload_preset', 'mundo_magico');
+            formData.append('folder', 'galeria');
 
-        if (data.ok) {
-            status.textContent = `✅ ${data.archivos.length} archivo(s) subido(s)`;
+            const esVideo = ['mp4','mov','webm'].includes(archivo.name.split('.').pop().toLowerCase());
+            const tipo = esVideo ? 'video' : 'image';
+            const cloudName = 'djsgmhnll';
+
+            status.textContent = `Subiendo ${archivo.name}... ✨`;
+
+            const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${tipo}/upload`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await res.json();
+            if (data.secure_url) {
+                subidos.push(archivo.name);
+                // Guardar texto en el servidor
+                if (texto) {
+                    await fetch('/guardar-texto', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ nombre: data.original_filename + '.' + data.format, texto })
+                    });
+                }
+            }
+        }
+
+        if (subidos.length > 0) {
+            status.textContent = `✅ ${subidos.length} archivo(s) subido(s)`;
             setTimeout(() => {
                 cerrarSubir();
                 reiniciarTodo();
@@ -750,6 +777,7 @@ async function subirArchivos() {
             status.textContent = 'Error al subir.';
         }
     } catch (e) {
+        console.error(e);
         status.textContent = 'Error de conexión.';
     }
 }
@@ -758,7 +786,6 @@ async function reiniciarTodo() {
     const res = await fetch('/media');
     const archivos = await res.json();
 
-    // Guardar estado de música antes de reiniciar
     const musicaEstabaActiva = musicaActiva;
 
     const libro = document.querySelector('.libro');
@@ -773,6 +800,9 @@ async function reiniciarTodo() {
         const pag = document.createElement('div');
         pag.className = 'pagina';
         pag.style.zIndex = archivos.length - i;
+        pag.style.transform = '';
+        pag.style.opacity = '1';
+        pag.style.pointerEvents = 'auto';
         pag.dataset.nombre = archivo.nombre;
 
         if (archivo.tipo === 'video') {
@@ -787,7 +817,6 @@ async function reiniciarTodo() {
         }
 
         let timer = null;
-
         const iniciarEliminar = () => {
             timer = setTimeout(() => mostrarConfirmEliminar(pag, archivo.nombre), 6000);
         };
@@ -802,11 +831,8 @@ async function reiniciarTodo() {
         libro.appendChild(pag);
     });
 
-    indice = 0;
-    volteando = false;
     document.getElementById('frase').textContent = frases[0] || '';
 
-    // Reanudar música si estaba activa
     if (musicaEstabaActiva && audioFondo) {
         audioFondo.play();
         musicaActiva = true;

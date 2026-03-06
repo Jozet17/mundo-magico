@@ -207,5 +207,24 @@ def bienvenida_audio(filename):
         filename
     )
 
+@app.route("/guardar-texto", methods=["POST"])
+def guardar_texto():
+    try:
+        data = request.get_json()
+        nombre = data.get("nombre")
+        texto = data.get("texto", "")
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        textos_path = os.path.join(UPLOAD_FOLDER, 'textos.json')
+        textos = {}
+        if os.path.exists(textos_path):
+            with open(textos_path, 'r', encoding='utf-8') as f:
+                textos = json.load(f)
+        textos[nombre] = texto
+        with open(textos_path, 'w', encoding='utf-8') as f:
+            json.dump(textos, f, ensure_ascii=False)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)
