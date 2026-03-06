@@ -32,6 +32,9 @@ def inicio():
 @app.route("/subir", methods=["POST"])
 def subir():
     try:
+        print("=== INICIANDO SUBIDA ===")
+        print("CLOUDINARY CLOUD_NAME:", os.environ.get('CLOUDINARY_CLOUD_NAME'))
+        print("CLOUDINARY API_KEY:", os.environ.get('CLOUDINARY_API_KEY'))
         from PIL import Image
 
         archivos = request.files.getlist("archivos")
@@ -51,6 +54,7 @@ def subir():
             if archivo and allowed_file(archivo.filename):
                 filename = archivo.filename
                 ext = filename.rsplit('.', 1)[-1].lower()
+                print(f"Subiendo archivo: {filename}, ext: {ext}")
 
                 if ext in ('heic', 'heif'):
                     filename = filename.rsplit('.', 1)[0] + '.jpg'
@@ -132,7 +136,8 @@ def media():
         return jsonify(archivos)
 
     except Exception as e:
-        print("ERROR al listar media:", e)
+        import traceback
+        print("ERROR al listar media:", traceback.format_exc())
         return jsonify([]), 500
 
 @app.route("/eliminar", methods=["POST"])
