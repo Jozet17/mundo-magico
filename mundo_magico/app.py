@@ -1,10 +1,20 @@
 import os
-from flask import Flask, render_template, request, jsonify
 import json
+import io
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+from flask import Flask, render_template, request, jsonify
 from pillow_heif import register_heif_opener
 register_heif_opener()
 
 app = Flask(__name__)
+
+cloudinary.config(
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+)
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'img', 'galeria')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov', 'webm', 'heic', 'heif'}
@@ -28,9 +38,9 @@ def subir():
         texto = request.form.get("texto", "")
         subidos = []
 
-        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-        textos_path = os.path.join(app.config['UPLOAD_FOLDER'], 'textos.json')
+        textos_path = os.path.join(UPLOAD_FOLDER, 'textos.json')
         if os.path.exists(textos_path):
             with open(textos_path, 'r', encoding='utf-8') as f:
                 textos = json.load(f)
@@ -42,15 +52,25 @@ def subir():
                 filename = archivo.filename
                 ext = filename.rsplit('.', 1)[-1].lower()
 
-                # Convertir HEIC/HEIF a JPEG
                 if ext in ('heic', 'heif'):
                     filename = filename.rsplit('.', 1)[0] + '.jpg'
                     img = Image.open(archivo.stream)
-                    ruta = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                    img.convert('RGB').save(ruta, 'JPEG', quality=90)
+                    buf = io.BytesIO()
+                    img.convert('RGB').save(buf, 'JPEG', quality=90)
+                    buf.seek(0)
+                    cloudinary.uploader.upload(
+                        buf,
+                        public_id='galeria/' + filename.rsplit('.', 1)[0],
+                        resource_type='image'
+                    )
                 else:
-                    ruta = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                    archivo.save(ruta)
+                    archivo.stream.seek(0)
+                    resource_type = 'video' if ext in ('mp4', 'mov', 'webm') else 'image'
+                    cloudinary.uploader.upload(
+                        archivo.stream,
+                        public_id='galeria/' + filename.rsplit('.', 1)[0],
+                        resource_type=resource_type
+                    )
 
                 subidos.append(filename)
                 if texto:
@@ -68,28 +88,44 @@ def subir():
 @app.route("/media")
 def media():
     try:
-        carpeta = app.config['UPLOAD_FOLDER']
         archivos = []
-        extensiones_video = {'mp4', 'mov', 'webm'}
-        extensiones_foto = {'png', 'jpg', 'jpeg', 'gif'}
 
-        textos_path = os.path.join(carpeta, 'textos.json')
+        textos_path = os.path.join(UPLOAD_FOLDER, 'textos.json')
         textos = {}
         if os.path.exists(textos_path):
             with open(textos_path, 'r', encoding='utf-8') as f:
                 textos = json.load(f)
 
-        for f in os.listdir(carpeta):
-            if f == 'textos.json':
-                continue
-            ext = f.rsplit('.', 1)[-1].lower()
-            ruta = os.path.join(carpeta, f)
-            fecha = os.path.getmtime(ruta)
-            texto = textos.get(f, "")
-            if ext in extensiones_foto:
-                archivos.append({"nombre": f, "tipo": "foto", "fecha": fecha, "texto": texto})
-            elif ext in extensiones_video:
-                archivos.append({"nombre": f, "tipo": "video", "fecha": fecha, "texto": texto})
+        resultado = cloudinary.api.resources(
+            type='upload',
+            prefix='galeria/',
+            max_results=500,
+            resource_type='image'
+        )
+        resultado_video = cloudinary.api.resources(
+            type='upload',
+            prefix='galeria/',
+            max_results=500,
+            resource_type='video'
+        )
+
+        todos = resultado.get('resources', []) + resultado_video.get('resources', [])
+
+        for recurso in todos:
+            public_id = recurso['public_id']
+            nombre = public_id.replace('galeria/', '') + '.' + recurso['format']
+            resource_type = recurso['resource_type']
+            fecha = recurso['created_at']
+            url = recurso['secure_url']
+            texto = textos.get(nombre, '')
+            tipo = 'video' if resource_type == 'video' else 'foto'
+            archivos.append({
+                "nombre": nombre,
+                "tipo": tipo,
+                "fecha": fecha,
+                "texto": texto,
+                "url": url
+            })
 
         archivos.sort(key=lambda x: x["fecha"])
         return jsonify(archivos)
@@ -103,13 +139,12 @@ def eliminar():
     try:
         data = request.get_json()
         nombre = data.get("nombre")
-        ruta = os.path.join(app.config['UPLOAD_FOLDER'], nombre)
+        public_id = 'galeria/' + nombre.rsplit('.', 1)[0]
+        ext = nombre.rsplit('.', 1)[-1].lower()
+        resource_type = 'video' if ext in ('mp4', 'mov', 'webm') else 'image'
 
-        if os.path.exists(ruta):
-            os.remove(ruta)
-            return jsonify({"ok": True})
-        else:
-            return jsonify({"ok": False, "error": "Archivo no encontrado"}), 404
+        cloudinary.uploader.destroy(public_id, resource_type=resource_type)
+        return jsonify({"ok": True})
 
     except Exception as e:
         print("ERROR al eliminar:", e)
@@ -168,3 +203,10 @@ def bienvenida_audio(filename):
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)
+```
+
+Guarda, luego en la terminal:
+```
+git add .
+git commit -m "cloudinary"
+git push origin main
