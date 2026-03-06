@@ -356,8 +356,8 @@ async function iniciarLibro() {
         const res = await fetch('/media');
         archivosServidor = await res.json();
         if (archivosServidor.length > 0) {
-            fotos = archivosServidor.map(a => `img/galeria/${a.nombre}`);
-            frases = archivosServidor.map(a => a.texto || frases_default[archivosServidor.indexOf(a) % frases_default.length]);
+            fotos = archivosServidor.map(a => a.url || `/static/img/galeria/${a.nombre}`);
+            frases = archivosServidor.map((a, i) => a.texto || frases_default[i % frases_default.length]);
         }
     } catch(e) {
         console.log('Usando fotos locales');
@@ -367,19 +367,19 @@ async function iniciarLibro() {
         const pag = document.createElement('div');
         pag.className = 'pagina';
         pag.style.zIndex = fotos.length - i;
-        const nombre = src.split('/').pop();
+        const nombre = archivosServidor[i]?.nombre || src.split('/').pop();
         const esVideo = ['mp4','mov','webm'].includes(nombre.split('.').pop().toLowerCase());
-        const urlArchivo = archivosServidor[i]?.url;
+        const urlArchivo = archivosServidor[i]?.url || src;
 
         if (esVideo) {
             pag.innerHTML = `
                 <video playsinline controls style="
                     width:100%; height:100%; object-fit:cover; display:block;
                 ">
-                    <source src="${urlArchivo || '/static/' + src}">
+                    <source src="${urlArchivo}">
                 </video>`;
         } else {
-            pag.innerHTML = `<img src="${urlArchivo || '/static/' + src + '?t=' + Date.now()}" alt="foto ${i+1}">`;
+            pag.innerHTML = `<img src="${urlArchivo}" alt="foto ${i+1}">`;
         }
 
         pag.dataset.nombre = nombre;
@@ -730,13 +730,14 @@ async function subirArchivos() {
         return;
     }
 
-    status.textContent = 'Subiendo... ✨';
-
     const archivos = Array.from(input.files);
     const subidos = [];
+    const cloudName = 'djsgmhnll';
 
-    try {
-        for (const archivo of archivos) {
+    for (const archivo of archivos) {
+        try {
+            status.textContent = `Subiendo ${archivo.name}... ✨`;
+
             const formData = new FormData();
             formData.append('file', archivo);
             formData.append('upload_preset', 'mundo_magico');
@@ -744,9 +745,6 @@ async function subirArchivos() {
 
             const esVideo = ['mp4','mov','webm'].includes(archivo.name.split('.').pop().toLowerCase());
             const tipo = esVideo ? 'video' : 'image';
-            const cloudName = 'djsgmhnll';
-
-            status.textContent = `Subiendo ${archivo.name}... ✨`;
 
             const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${tipo}/upload`, {
                 method: 'POST',
@@ -754,9 +752,9 @@ async function subirArchivos() {
             });
 
             const data = await res.json();
+
             if (data.secure_url) {
                 subidos.push(archivo.name);
-                // Guardar texto en el servidor
                 if (texto) {
                     await fetch('/guardar-texto', {
                         method: 'POST',
@@ -764,79 +762,91 @@ async function subirArchivos() {
                         body: JSON.stringify({ nombre: data.original_filename + '.' + data.format, texto })
                     });
                 }
+            } else {
+                console.error('Error Cloudinary:', data);
+                status.textContent = `Error subiendo ${archivo.name}: ${data.error?.message || 'error desconocido'}`;
             }
+        } catch(e) {
+            console.error('Error subiendo archivo:', e);
+            status.textContent = `Error de conexión subiendo ${archivo.name}`;
         }
+    }
 
-        if (subidos.length > 0) {
-            status.textContent = `✅ ${subidos.length} archivo(s) subido(s)`;
-            setTimeout(() => {
-                cerrarSubir();
-                reiniciarTodo();
-            }, 1500);
-        } else {
-            status.textContent = 'Error al subir.';
-        }
-    } catch (e) {
-        console.error(e);
-        status.textContent = 'Error de conexión.';
+    if (subidos.length > 0) {
+        status.textContent = `✅ ${subidos.length} archivo(s) subido(s)`;
+        setTimeout(() => {
+            cerrarSubir();
+            reiniciarTodo();
+        }, 1500);
     }
 }
 
 async function reiniciarTodo() {
-    const res = await fetch('/media');
-    const archivos = await res.json();
+    try {
+        const res = await fetch('/media');
+        const archivos = await res.json();
 
-    const musicaEstabaActiva = musicaActiva;
+        const musicaEstabaActiva = musicaActiva;
 
-    const libro = document.querySelector('.libro');
-    libro.querySelectorAll('.pagina').forEach(p => p.remove());
-    indice = 0;
-    volteando = false;
+        // Cerrar panel fin si está abierto
+        const finOverlay = document.getElementById('fin-overlay');
+        if (finOverlay) finOverlay.remove();
 
-    fotos = archivos.map(a => `img/galeria/${a.nombre}`);
-    frases = archivos.map(a => a.texto || frases_default[archivos.indexOf(a) % frases_default.length]);
+        const libro = document.querySelector('.libro');
+        libro.querySelectorAll('.pagina').forEach(p => p.remove());
+        indice = 0;
+        volteando = false;
 
-    archivos.forEach((archivo, i) => {
-        const pag = document.createElement('div');
-        pag.className = 'pagina';
-        pag.style.zIndex = archivos.length - i;
-        pag.style.transform = '';
-        pag.style.opacity = '1';
-        pag.style.pointerEvents = 'auto';
-        pag.dataset.nombre = archivo.nombre;
+        fotos = archivos.map(a => a.url || `/static/img/galeria/${a.nombre}`);
+        frases = archivos.map((a, i) => a.texto || frases_default[i % frases_default.length]);
 
-        if (archivo.tipo === 'video') {
-            pag.innerHTML = `
-                <video playsinline controls style="
-                    width:100%; height:100%; object-fit:cover; display:block;
-                ">
-                    <source src="${archivo.url || '/static/img/galeria/' + archivo.nombre}">
-                </video>`;
-        } else {
-            pag.innerHTML = `<img src="${archivo.url || '/static/img/galeria/' + archivo.nombre + '?t=' + Date.now()}" alt="foto ${i+1}">`;
+        archivos.forEach((archivo, i) => {
+            const pag = document.createElement('div');
+            pag.className = 'pagina';
+            pag.style.zIndex = archivos.length - i;
+            pag.style.transform = '';
+            pag.style.opacity = '1';
+            pag.style.pointerEvents = 'auto';
+            pag.style.display = 'block';
+            pag.dataset.nombre = archivo.nombre;
+
+            const urlArchivo = archivo.url || `/static/img/galeria/${archivo.nombre}`;
+
+            if (archivo.tipo === 'video') {
+                pag.innerHTML = `
+                    <video playsinline controls style="
+                        width:100%; height:100%; object-fit:cover; display:block;
+                    ">
+                        <source src="${urlArchivo}">
+                    </video>`;
+            } else {
+                pag.innerHTML = `<img src="${urlArchivo}?t=${Date.now()}" alt="foto ${i+1}">`;
+            }
+
+            let timer = null;
+            const iniciarEliminar = () => {
+                timer = setTimeout(() => mostrarConfirmEliminar(pag, archivo.nombre), 6000);
+            };
+            const cancelarEliminar = () => clearTimeout(timer);
+
+            pag.addEventListener('mousedown', iniciarEliminar);
+            pag.addEventListener('mouseup', cancelarEliminar);
+            pag.addEventListener('mouseleave', cancelarEliminar);
+            pag.addEventListener('touchstart', iniciarEliminar);
+            pag.addEventListener('touchend', cancelarEliminar);
+
+            libro.appendChild(pag);
+        });
+
+        document.getElementById('frase').textContent = frases[0] || '';
+
+        if (musicaEstabaActiva && audioFondo) {
+            audioFondo.play();
+            musicaActiva = true;
+            actualizarBtnMusica();
         }
-
-        let timer = null;
-        const iniciarEliminar = () => {
-            timer = setTimeout(() => mostrarConfirmEliminar(pag, archivo.nombre), 6000);
-        };
-        const cancelarEliminar = () => clearTimeout(timer);
-
-        pag.addEventListener('mousedown', iniciarEliminar);
-        pag.addEventListener('mouseup', cancelarEliminar);
-        pag.addEventListener('mouseleave', cancelarEliminar);
-        pag.addEventListener('touchstart', iniciarEliminar);
-        pag.addEventListener('touchend', cancelarEliminar);
-
-        libro.appendChild(pag);
-    });
-
-    document.getElementById('frase').textContent = frases[0] || '';
-
-    if (musicaEstabaActiva && audioFondo) {
-        audioFondo.play();
-        musicaActiva = true;
-        actualizarBtnMusica();
+    } catch(e) {
+        console.error('Error al reiniciar:', e);
     }
 }
 
