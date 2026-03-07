@@ -101,6 +101,8 @@ def media():
             with open(textos_path, 'r', encoding='utf-8') as f:
                 textos = json.load(f)
 
+        cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME')
+
         resultado = cloudinary.api.resources(
             type='upload',
             prefix='galeria/',
@@ -118,12 +120,19 @@ def media():
 
         for recurso in todos:
             public_id = recurso['public_id']
-            nombre = public_id.replace('galeria/', '') + '.' + recurso['format']
+            fmt = recurso['format']
+            nombre = public_id.replace('galeria/', '') + '.' + fmt
             resource_type = recurso['resource_type']
             fecha = recurso['created_at']
-            url = recurso['secure_url']
             texto = textos.get(nombre, '')
             tipo = 'video' if resource_type == 'video' else 'foto'
+
+            # URL optimizada compatible con Samsung Chrome
+            if tipo == 'video':
+                url = f"https://res.cloudinary.com/{cloud_name}/video/upload/q_auto/{public_id}.{fmt}"
+            else:
+                url = f"https://res.cloudinary.com/{cloud_name}/image/upload/f_jpg,q_auto/{public_id}"
+
             archivos.append({
                 "nombre": nombre,
                 "tipo": tipo,
