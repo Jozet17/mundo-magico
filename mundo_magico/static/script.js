@@ -333,6 +333,7 @@ function explosionMagica() {
 /* ========================= */
 
 let fotos = [];
+let archivosGlobal = [];
 
 let frases = [...frases_default];
 let indice = 0;
@@ -351,6 +352,7 @@ async function iniciarLibro() {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
             archivosServidor = data;
+            archivosGlobal = data;
             fotos = archivosServidor.map(a => a.url);
             frases = archivosServidor.map((a, i) => a.texto && a.texto.trim() !== '' ? a.texto : frases_default[i % frases_default.length]);
         }
@@ -727,15 +729,16 @@ async function subirArchivos() {
     const archivos = Array.from(input.files);
     const subidos = [];
     const cloudName = 'djsgmhnll';
-    const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
+    const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
 
     for (const archivo of archivos) {
         try {
             const ext = archivo.name.split('.').pop().toLowerCase();
             const esVideo = ['mp4','mov','webm'].includes(ext);
-            const esImagen = ['jpg','jpeg','png','gif','heic','heif','webp'].includes(ext);
+            const esHeic = ['heic','heif'].includes(ext);
+            const esImagen = ['jpg','jpeg','png','gif','webp'].includes(ext);
 
-            if (!esVideo && !esImagen) {
+            if (!esVideo && !esImagen && !esHeic) {
                 status.textContent = `Formato no soportado: ${archivo.name}`;
                 continue;
             }
@@ -746,8 +749,30 @@ async function subirArchivos() {
             }
 
             status.textContent = `Subiendo ${archivo.name}... ✨`;
-            const tipo = esVideo ? 'video' : 'image';
 
+            let nombreArchivo, urlArchivo;
+
+            if (esHeic) {
+                // HEIC va al servidor Flask que convierte a JPG
+                const formData = new FormData();
+                formData.append('archivos', archivo);
+                if (texto) formData.append('texto', texto);
+
+                const res = await fetch('/subir', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    subidos.push(...data.archivos);
+                } else {
+                    status.textContent = `Error subiendo ${archivo.name}`;
+                }
+                continue;
+            }
+
+            // Imágenes y videos normales van directo a Cloudinary
+            const tipo = esVideo ? 'video' : 'image';
             const formData = new FormData();
             formData.append('file', archivo);
             formData.append('upload_preset', 'mundo_magico');
@@ -761,7 +786,7 @@ async function subirArchivos() {
             const data = await res.json();
 
             if (data.secure_url) {
-                const nombreArchivo = data.public_id.replace('galeria/', '') + '.' + data.format;
+                nombreArchivo = data.public_id.replace('galeria/', '') + '.' + data.format;
                 subidos.push(nombreArchivo);
                 if (texto) {
                     await fetch('/guardar-texto', {
@@ -793,6 +818,7 @@ async function reiniciarTodo() {
     try {
         const res = await fetch('/media');
         const archivos = await res.json();
+        archivosGlobal = archivos;
 
         const musicaEstabaActiva = musicaActiva;
 
