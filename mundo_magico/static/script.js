@@ -332,13 +332,7 @@ function explosionMagica() {
 /* GALERÍA — LIBRO MÁGICO   */
 /* ========================= */
 
-let fotos = [
-    "img/galeria/foto1.jpeg",
-    "img/galeria/foto2.jpeg",
-    "img/galeria/foto3.jpeg",
-    "img/galeria/foto4.jpeg",
-    "img/galeria/foto5.jpeg"
-];
+let fotos = [];
 
 let frases = [...frases_default];
 let indice = 0;
@@ -358,7 +352,7 @@ async function iniciarLibro() {
         if (Array.isArray(data) && data.length > 0) {
             archivosServidor = data;
             fotos = archivosServidor.map(a => a.url);
-            frases = archivosServidor.map((a, i) => a.texto || frases_default[i % frases_default.length]);
+            frases = archivosServidor.map((a, i) => a.texto && a.texto.trim() !== '' ? a.texto : frases_default[i % frases_default.length]);
         }
     } catch(e) {
         console.log('Error cargando media:', e);
@@ -812,7 +806,7 @@ async function reiniciarTodo() {
 
         if (Array.isArray(archivos) && archivos.length > 0) {
             fotos = archivos.map(a => a.url);
-            frases = archivos.map((a, i) => a.texto || frases_default[i % frases_default.length]);
+            frases = archivosServidor.map((a, i) => a.texto && a.texto.trim() !== '' ? a.texto : frases_default[i % frases_default.length]);
 
             archivos.forEach((archivo, i) => {
                 const pag = document.createElement('div');
