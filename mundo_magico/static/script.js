@@ -376,7 +376,7 @@ async function iniciarLibro() {
                 <video playsinline controls style="
                     width:100%; height:100%; object-fit:cover; display:block;
                 ">
-                    <source src="${urlArchivo}">
+                    <source src="${urlArchivo}?_cb=${Date.now()}">
                 </video>`;
         } else {
             pag.innerHTML = `<img src="${urlArchivo}" alt="foto ${i+1}">`;
@@ -817,7 +817,7 @@ async function reiniciarTodo() {
                     <video playsinline controls style="
                         width:100%; height:100%; object-fit:cover; display:block;
                     ">
-                        <source src="${urlArchivo}">
+                        <source src="${urlArchivo}?_cb=${Date.now()}">
                     </video>`;
             } else {
                 pag.innerHTML = `<img src="${urlArchivo}?t=${Date.now()}" alt="foto ${i+1}">`;
