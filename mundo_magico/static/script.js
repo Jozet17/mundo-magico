@@ -818,7 +818,6 @@ async function reiniciarTodo() {
     try {
         const res = await fetch('/media');
         const archivos = await res.json();
-        archivosGlobal = archivos;
 
         const musicaEstabaActiva = musicaActiva;
 
@@ -830,45 +829,45 @@ async function reiniciarTodo() {
         indice = 0;
         volteando = false;
 
-        if (Array.isArray(archivos) && archivos.length > 0) {
-            fotos = archivos.map(a => a.url);
-            frases = archivosServidor.map((a, i) => a.texto && a.texto.trim() !== '' ? a.texto : frases_default[i % frases_default.length]);
+        if (!Array.isArray(archivos) || archivos.length === 0) return;
 
-            archivos.forEach((archivo, i) => {
-                const pag = document.createElement('div');
-                pag.className = 'pagina';
-                pag.style.zIndex = archivos.length - i;
-                pag.style.transform = '';
-                pag.style.opacity = '1';
-                pag.style.pointerEvents = 'auto';
-                pag.style.display = 'block';
-                pag.dataset.nombre = archivo.nombre;
+        fotos = archivos.map(a => a.url);
+        frases = archivos.map((a, i) => a.texto && a.texto.trim() !== '' ? a.texto : frases_default[i % frases_default.length]);
 
-                if (archivo.tipo === 'video') {
-                    pag.innerHTML = `
-                        <video playsinline controls preload="metadata" style="
-                            width:100%; height:100%; object-fit:cover; display:block;
-                        ">
-                            <source src="${archivo.url}" type="video/mp4">
-                        </video>`;
-                } else {
-                    pag.innerHTML = `<img src="${archivo.url}" alt="foto ${i+1}" loading="lazy">`;
-                }
+        archivos.forEach((archivo, i) => {
+            const pag = document.createElement('div');
+            pag.className = 'pagina';
+            pag.style.zIndex = archivos.length - i;
+            pag.style.transform = '';
+            pag.style.opacity = '1';
+            pag.style.pointerEvents = 'auto';
+            pag.style.display = 'block';
+            pag.dataset.nombre = archivo.nombre;
 
-                let timer = null;
-                const iniciarEliminar = () => {
-                    timer = setTimeout(() => mostrarConfirmEliminar(pag, archivo.nombre), 6000);
-                };
-                const cancelarEliminar = () => clearTimeout(timer);
-                pag.addEventListener('mousedown', iniciarEliminar);
-                pag.addEventListener('mouseup', cancelarEliminar);
-                pag.addEventListener('mouseleave', cancelarEliminar);
-                pag.addEventListener('touchstart', iniciarEliminar);
-                pag.addEventListener('touchend', cancelarEliminar);
+            if (archivo.tipo === 'video') {
+                pag.innerHTML = `
+                    <video playsinline controls preload="metadata" style="
+                        width:100%; height:100%; object-fit:cover; display:block;
+                    ">
+                        <source src="${archivo.url}" type="video/mp4">
+                    </video>`;
+            } else {
+                pag.innerHTML = `<img src="${archivo.url}" alt="foto ${i+1}" loading="lazy">`;
+            }
 
-                libro.appendChild(pag);
-            });
-        }
+            let timer = null;
+            const iniciarEliminar = () => {
+                timer = setTimeout(() => mostrarConfirmEliminar(pag, archivo.nombre), 6000);
+            };
+            const cancelarEliminar = () => clearTimeout(timer);
+            pag.addEventListener('mousedown', iniciarEliminar);
+            pag.addEventListener('mouseup', cancelarEliminar);
+            pag.addEventListener('mouseleave', cancelarEliminar);
+            pag.addEventListener('touchstart', iniciarEliminar);
+            pag.addEventListener('touchend', cancelarEliminar);
+
+            libro.appendChild(pag);
+        });
 
         document.getElementById('frase').textContent = frases[0] || '';
 
