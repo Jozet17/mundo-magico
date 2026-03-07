@@ -354,32 +354,32 @@ async function iniciarLibro() {
 
     try {
         const res = await fetch('/media');
-        archivosServidor = await res.json();
-        if (archivosServidor.length > 0) {
-            fotos = archivosServidor.map(a => a.url || `/static/img/galeria/${a.nombre}`);
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+            archivosServidor = data;
+            fotos = archivosServidor.map(a => a.url);
             frases = archivosServidor.map((a, i) => a.texto || frases_default[i % frases_default.length]);
         }
     } catch(e) {
-        console.log('Usando fotos locales');
+        console.log('Error cargando media:', e);
     }
 
-    fotos.forEach((src, i) => {
+    fotos.forEach((url, i) => {
         const pag = document.createElement('div');
         pag.className = 'pagina';
         pag.style.zIndex = fotos.length - i;
-        const nombre = archivosServidor[i]?.nombre || src.split('/').pop();
-        const esVideo = ['mp4','mov','webm'].includes(nombre.split('.').pop().toLowerCase());
-        const urlArchivo = archivosServidor[i]?.url || src;
+        const nombre = archivosServidor[i]?.nombre || url.split('/').pop().split('?')[0];
+        const esVideo = archivosServidor[i]?.tipo === 'video';
 
         if (esVideo) {
             pag.innerHTML = `
-                <video playsinline controls style="
+                <video playsinline controls preload="metadata" style="
                     width:100%; height:100%; object-fit:cover; display:block;
                 ">
-                    <source src="${urlArchivo}?_cb=${Date.now()}">
+                    <source src="${url}" type="video/mp4">
                 </video>`;
         } else {
-            pag.innerHTML = `<img src="${urlArchivo}" alt="foto ${i+1}">`;
+            pag.innerHTML = `<img src="${url}" alt="foto ${i+1}" loading="lazy">`;
         }
 
         pag.dataset.nombre = nombre;
@@ -396,7 +396,7 @@ async function iniciarLibro() {
         libro.appendChild(pag);
     });
 
-    document.getElementById('frase').textContent = frases[0];
+    if (frases.length > 0) document.getElementById('frase').textContent = frases[0];
 
     libro.addEventListener('click', () => {
         if (!autoActivo) pasarPagina();
@@ -822,7 +822,6 @@ async function reiniciarTodo() {
 
         const musicaEstabaActiva = musicaActiva;
 
-        // Cerrar panel fin si está abierto
         const finOverlay = document.getElementById('fin-overlay');
         if (finOverlay) finOverlay.remove();
 
@@ -831,46 +830,45 @@ async function reiniciarTodo() {
         indice = 0;
         volteando = false;
 
-        fotos = archivos.map(a => a.url || `/static/img/galeria/${a.nombre}`);
-        frases = archivos.map((a, i) => a.texto || frases_default[i % frases_default.length]);
+        if (Array.isArray(archivos) && archivos.length > 0) {
+            fotos = archivos.map(a => a.url);
+            frases = archivos.map((a, i) => a.texto || frases_default[i % frases_default.length]);
 
-        archivos.forEach((archivo, i) => {
-            const pag = document.createElement('div');
-            pag.className = 'pagina';
-            pag.style.zIndex = archivos.length - i;
-            pag.style.transform = '';
-            pag.style.opacity = '1';
-            pag.style.pointerEvents = 'auto';
-            pag.style.display = 'block';
-            pag.dataset.nombre = archivo.nombre;
+            archivos.forEach((archivo, i) => {
+                const pag = document.createElement('div');
+                pag.className = 'pagina';
+                pag.style.zIndex = archivos.length - i;
+                pag.style.transform = '';
+                pag.style.opacity = '1';
+                pag.style.pointerEvents = 'auto';
+                pag.style.display = 'block';
+                pag.dataset.nombre = archivo.nombre;
 
-            const urlArchivo = archivo.url || `/static/img/galeria/${archivo.nombre}`;
+                if (archivo.tipo === 'video') {
+                    pag.innerHTML = `
+                        <video playsinline controls preload="metadata" style="
+                            width:100%; height:100%; object-fit:cover; display:block;
+                        ">
+                            <source src="${archivo.url}" type="video/mp4">
+                        </video>`;
+                } else {
+                    pag.innerHTML = `<img src="${archivo.url}" alt="foto ${i+1}" loading="lazy">`;
+                }
 
-            if (archivo.tipo === 'video') {
-                pag.innerHTML = `
-                    <video playsinline controls style="
-                        width:100%; height:100%; object-fit:cover; display:block;
-                    ">
-                        <source src="${urlArchivo}?_cb=${Date.now()}">
-                    </video>`;
-            } else {
-                pag.innerHTML = `<img src="${urlArchivo}?t=${Date.now()}" alt="foto ${i+1}">`;
-            }
+                let timer = null;
+                const iniciarEliminar = () => {
+                    timer = setTimeout(() => mostrarConfirmEliminar(pag, archivo.nombre), 6000);
+                };
+                const cancelarEliminar = () => clearTimeout(timer);
+                pag.addEventListener('mousedown', iniciarEliminar);
+                pag.addEventListener('mouseup', cancelarEliminar);
+                pag.addEventListener('mouseleave', cancelarEliminar);
+                pag.addEventListener('touchstart', iniciarEliminar);
+                pag.addEventListener('touchend', cancelarEliminar);
 
-            let timer = null;
-            const iniciarEliminar = () => {
-                timer = setTimeout(() => mostrarConfirmEliminar(pag, archivo.nombre), 6000);
-            };
-            const cancelarEliminar = () => clearTimeout(timer);
-
-            pag.addEventListener('mousedown', iniciarEliminar);
-            pag.addEventListener('mouseup', cancelarEliminar);
-            pag.addEventListener('mouseleave', cancelarEliminar);
-            pag.addEventListener('touchstart', iniciarEliminar);
-            pag.addEventListener('touchend', cancelarEliminar);
-
-            libro.appendChild(pag);
-        });
+                libro.appendChild(pag);
+            });
+        }
 
         document.getElementById('frase').textContent = frases[0] || '';
 
