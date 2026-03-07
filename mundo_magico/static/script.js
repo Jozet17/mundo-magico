@@ -733,27 +733,61 @@ async function subirArchivos() {
     const archivos = Array.from(input.files);
     const subidos = [];
     const cloudName = 'djsgmhnll';
+    const CHUNK_SIZE = 20 * 1024 * 1024; // 20MB por chunk
 
     for (const archivo of archivos) {
         try {
             status.textContent = `Subiendo ${archivo.name}... ✨`;
-
-            const formData = new FormData();
-            formData.append('file', archivo);
-            formData.append('upload_preset', 'mundo_magico');
-            formData.append('folder', 'galeria');
-
             const esVideo = ['mp4','mov','webm'].includes(archivo.name.split('.').pop().toLowerCase());
             const tipo = esVideo ? 'video' : 'image';
+            let data;
 
-            const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${tipo}/upload`, {
-                method: 'POST',
-                body: formData
-            });
+            if (archivo.size > CHUNK_SIZE) {
+                // Subida en chunks para archivos grandes
+                const uniqueUploadId = `upload_${Date.now()}`;
+                const totalChunks = Math.ceil(archivo.size / CHUNK_SIZE);
+                let start = 0;
 
-            const data = await res.json();
+                for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+                    const end = Math.min(start + CHUNK_SIZE, archivo.size);
+                    const chunk = archivo.slice(start, end);
+                    const isLast = chunkIndex === totalChunks - 1;
 
-            if (data.secure_url) {
+                    status.textContent = `Subiendo ${archivo.name}... ${Math.round((chunkIndex/totalChunks)*100)}% ✨`;
+
+                    const formData = new FormData();
+                    formData.append('file', chunk);
+                    formData.append('upload_preset', 'mundo_magico');
+                    formData.append('folder', 'galeria');
+                    formData.append('public_id', archivo.name.rsplit ? archivo.name : archivo.name.split('.')[0]);
+
+                    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${tipo}/upload`, {
+                        method: 'POST',
+                        headers: {
+                            'X-Unique-Upload-Id': uniqueUploadId,
+                            'Content-Range': `bytes ${start}-${end - 1}/${archivo.size}`
+                        },
+                        body: formData
+                    });
+
+                    data = await res.json();
+                    start = end;
+                }
+            } else {
+                // Subida normal para archivos pequeños
+                const formData = new FormData();
+                formData.append('file', archivo);
+                formData.append('upload_preset', 'mundo_magico');
+                formData.append('folder', 'galeria');
+
+                const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${tipo}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                data = await res.json();
+            }
+
+            if (data && data.secure_url) {
                 subidos.push(archivo.name);
                 if (texto) {
                     await fetch('/guardar-texto', {
@@ -764,11 +798,11 @@ async function subirArchivos() {
                 }
             } else {
                 console.error('Error Cloudinary:', data);
-                status.textContent = `Error subiendo ${archivo.name}: ${data.error?.message || 'error desconocido'}`;
+                status.textContent = `Error: ${data?.error?.message || 'error desconocido'}`;
             }
         } catch(e) {
-            console.error('Error subiendo archivo:', e);
-            status.textContent = `Error de conexión subiendo ${archivo.name}`;
+            console.error('Error:', e);
+            status.textContent = `Error subiendo ${archivo.name}`;
         }
     }
 
