@@ -733,12 +733,25 @@ async function subirArchivos() {
     const archivos = Array.from(input.files);
     const subidos = [];
     const cloudName = 'djsgmhnll';
+    const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
 
     for (const archivo of archivos) {
         try {
-            status.textContent = `Subiendo ${archivo.name}... ✨`;
             const ext = archivo.name.split('.').pop().toLowerCase();
             const esVideo = ['mp4','mov','webm'].includes(ext);
+            const esImagen = ['jpg','jpeg','png','gif','heic','heif','webp'].includes(ext);
+
+            if (!esVideo && !esImagen) {
+                status.textContent = `Formato no soportado: ${archivo.name}`;
+                continue;
+            }
+
+            if (esVideo && archivo.size > MAX_VIDEO_SIZE) {
+                status.textContent = `⚠️ ${archivo.name} supera 100MB. Comprime el video antes de subir.`;
+                continue;
+            }
+
+            status.textContent = `Subiendo ${archivo.name}... ✨`;
             const tipo = esVideo ? 'video' : 'image';
 
             const formData = new FormData();
