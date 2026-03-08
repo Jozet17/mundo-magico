@@ -11,8 +11,15 @@ const frases_default = [
 
 let clicksCorazon = 0;
 
+function mostrarFrase(elemento, texto) {
+    const conEmojis = texto.replace(
+        /(\p{Emoji_Presentation}|\p{Extended_Pictographic})/gu,
+        '<span style="-webkit-text-fill-color:initial; color:initial; background:none; background-clip:initial;">$1</span>'
+    );
+    elemento.innerHTML = conEmojis;
+}
+
 function abrirCorazon() {
-    // Precargar audio en la primera interacción del usuario
     if (!window.audioBienvenida) {
         window.audioBienvenida = new Audio('/static/bienvenida/bienvenida.mp3');
         window.audioBienvenida.load();
@@ -169,11 +176,7 @@ function iniciarContador() {
         if (tiempo <= 0) {
             clearInterval(intervaloContador);
             contadorElemento.style.display = "none";
-
-            // Mostrar clave inmediatamente
             claveBox.style.display = "block";
-
-            // Reproducir audio y limpiar referencia al terminar
             try {
                 const audio = window.audioBienvenida || new Audio('/static/bienvenida/bienvenida.mp3');
                 audio.currentTime = 0;
@@ -392,7 +395,7 @@ async function iniciarLibro() {
         libro.appendChild(pag);
     });
 
-    if (frases.length > 0) document.getElementById('frase').textContent = frases[0];
+    if (frases.length > 0) mostrarFrase(document.getElementById('frase'), frases[0]);
 
     libro.addEventListener('click', () => {
         if (!autoActivo) pasarPagina();
@@ -475,7 +478,6 @@ function pasarPagina() {
     setTimeout(() => {
         paginaActual.style.display = 'none';
 
-        // Silenciar listeners del video actual antes de pausarlo
         const videoActual = paginaActual.querySelector('video');
         if (videoActual) {
             const nuevoActual = videoActual.cloneNode(true);
@@ -503,7 +505,7 @@ function pasarPagina() {
                 const fraseEl = document.getElementById('frase');
                 fraseEl.style.opacity = 0;
                 setTimeout(() => {
-                    fraseEl.textContent = frases[0];
+                    mostrarFrase(fraseEl, frases[0]);
                     fraseEl.style.opacity = 1;
                 }, 300);
                 if (autoActivo) {
@@ -517,7 +519,7 @@ function pasarPagina() {
             const fraseEl = document.getElementById('frase');
             fraseEl.style.opacity = 0;
             setTimeout(() => {
-                fraseEl.textContent = frases[indice] || '';
+                mostrarFrase(fraseEl, frases[indice] || '');
                 fraseEl.style.opacity = 1;
             }, 300);
 
@@ -525,12 +527,11 @@ function pasarPagina() {
             const sigVideo = sigPagina?.querySelector('video');
 
             if (sigVideo) {
-                // Solo pausar música si el video se reproduce, no al llegar a la página
                 sigVideo.currentTime = 0;
-            
+
                 const nuevoVideo = sigVideo.cloneNode(true);
                 sigVideo.parentNode.replaceChild(nuevoVideo, sigVideo);
-            
+
                 nuevoVideo.addEventListener('play', () => pausarMusica());
                 nuevoVideo.addEventListener('seeking', () => pausarMusica());
                 nuevoVideo.addEventListener('pause', () => reanudarMusica());
@@ -540,11 +541,11 @@ function pasarPagina() {
                         intervaloAuto = setInterval(pasarPagina, 4000);
                     }
                 });
-            
+
                 if (autoActivo) {
                     clearInterval(intervaloAuto);
                     intervaloAuto = null;
-                    nuevoVideo.play(); // En modo auto sí se reproduce y pausa música
+                    nuevoVideo.play();
                 }
             } else {
                 reanudarMusica();
@@ -754,10 +755,7 @@ async function subirArchivos() {
 
             status.textContent = `Subiendo ${archivo.name}... ✨`;
 
-            let nombreArchivo, urlArchivo;
-
             if (esHeic) {
-                // HEIC va al servidor Flask que convierte a JPG
                 const formData = new FormData();
                 formData.append('archivos', archivo);
                 if (texto) formData.append('texto', texto);
@@ -775,7 +773,6 @@ async function subirArchivos() {
                 continue;
             }
 
-            // Imágenes y videos normales van directo a Cloudinary
             const tipo = esVideo ? 'video' : 'image';
             const formData = new FormData();
             formData.append('file', archivo);
@@ -790,7 +787,7 @@ async function subirArchivos() {
             const data = await res.json();
 
             if (data.secure_url) {
-                nombreArchivo = data.public_id.replace('galeria/', '') + '.' + data.format;
+                const nombreArchivo = data.public_id.replace('galeria/', '') + '.' + data.format;
                 subidos.push(nombreArchivo);
                 if (texto) {
                     await fetch('/guardar-texto', {
@@ -873,7 +870,7 @@ async function reiniciarTodo() {
             libro.appendChild(pag);
         });
 
-        document.getElementById('frase').textContent = frases[0] || '';
+        mostrarFrase(document.getElementById('frase'), frases[0] || '');
 
         if (musicaEstabaActiva && audioFondo) {
             audioFondo.play();
@@ -886,7 +883,6 @@ async function reiniciarTodo() {
 }
 
 function mostrarConfirmEliminar(pag, nombre) {
-    // Overlay de confirmación
     const confirm = document.createElement('div');
     confirm.style.cssText = `
         position: fixed;
@@ -1023,7 +1019,6 @@ function cargarMusica() {
     const archivo = input.files[0];
     if (!archivo) return;
 
-    // Subir al servidor
     const formData = new FormData();
     formData.append('musica', archivo);
     fetch('/subir-musica', { method: 'POST', body: formData });
@@ -1071,7 +1066,6 @@ function actualizarBtnMusica() {
     }
 }
 
-// Mantener presionado 3s para eliminar música
 const btnMusica = document.getElementById('btn-musica');
 if (btnMusica) {
     const iniciarEliminarMusica = () => {
@@ -1102,7 +1096,6 @@ function iniciarEstrellasBienvenida() {
     const contenedor = document.getElementById('estrellas-bienvenida');
     if (!contenedor) return;
 
-    // Estrellas fijas de fondo
     for (let i = 0; i < 80; i++) {
         const s = document.createElement('div');
         s.innerHTML = ['★','✦','✧','·'][Math.floor(Math.random()*4)];
@@ -1121,7 +1114,6 @@ function iniciarEstrellasBienvenida() {
         contenedor.appendChild(s);
     }
 
-    // Estrellas cayendo
     function estrellaCayendo() {
         const s = document.createElement('div');
         s.innerHTML = ['★','✦','✧','✨'][Math.floor(Math.random()*4)];
@@ -1141,7 +1133,6 @@ function iniciarEstrellasBienvenida() {
     }
     setInterval(estrellaCayendo, 300);
 
-    // Fuegos artificiales
     function lanzarFuego() {
         const pantalla = document.getElementById('pantalla-bienvenida');
         if (!pantalla || pantalla.style.display === 'none') return;
@@ -1186,7 +1177,6 @@ function iniciarEstrellasBienvenida() {
             setTimeout(() => p.remove(), 1200);
         }
 
-        // Destello central
         const flash = document.createElement('div');
         flash.style.cssText = `
             position: fixed;
@@ -1351,6 +1341,26 @@ function mostrarCortinas(callback) {
             }, 300);
         });
     });
+}
+
+function crearEstrellas(event) {
+    for (let i = 0; i < 6; i++) {
+        const s = document.createElement('div');
+        s.className = 'estrella-click';
+        s.innerHTML = ['★','✦','✨','💫'][Math.floor(Math.random()*4)];
+        s.style.cssText = `
+            position: fixed;
+            left: ${event.clientX}px;
+            top: ${event.clientY}px;
+            font-size: ${10 + Math.random() * 14}px;
+            color: ${['#fde68a','#c4b5fd','#f9a8d4','#67e8f9'][Math.floor(Math.random()*4)]};
+            pointer-events: none;
+            z-index: 9999;
+            animation: desaparecer 0.8s forwards;
+        `;
+        document.body.appendChild(s);
+        setTimeout(() => s.remove(), 800);
+    }
 }
 
 iniciarEstrellasBienvenida();
