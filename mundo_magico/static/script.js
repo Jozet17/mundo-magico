@@ -525,12 +525,12 @@ function pasarPagina() {
             const sigVideo = sigPagina?.querySelector('video');
 
             if (sigVideo) {
-                pausarMusica();
+                // Solo pausar música si el video se reproduce, no al llegar a la página
                 sigVideo.currentTime = 0;
-
+            
                 const nuevoVideo = sigVideo.cloneNode(true);
                 sigVideo.parentNode.replaceChild(nuevoVideo, sigVideo);
-
+            
                 nuevoVideo.addEventListener('play', () => pausarMusica());
                 nuevoVideo.addEventListener('seeking', () => pausarMusica());
                 nuevoVideo.addEventListener('pause', () => reanudarMusica());
@@ -540,11 +540,11 @@ function pasarPagina() {
                         intervaloAuto = setInterval(pasarPagina, 4000);
                     }
                 });
-
+            
                 if (autoActivo) {
                     clearInterval(intervaloAuto);
                     intervaloAuto = null;
-                    nuevoVideo.play();
+                    nuevoVideo.play(); // En modo auto sí se reproduce y pausa música
                 }
             } else {
                 reanudarMusica();
@@ -989,12 +989,11 @@ let musicaActiva = false;
 let timerMusica = null;
 
 async function iniciarMusica() {
-    // Cargar música guardada en servidor al arrancar la galería
     try {
         const res = await fetch('/musica');
         const data = await res.json();
-        if (data.nombre) {
-            audioFondo = new Audio(`/static/music/${data.nombre}`);
+        if (data.url) {
+            audioFondo = new Audio(data.url);
             audioFondo.loop = true;
             audioFondo.volume = 0.5;
             audioFondo.play();

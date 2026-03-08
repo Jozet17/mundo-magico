@@ -51,7 +51,7 @@ def subir():
                     buf = io.BytesIO()
                     img.convert('RGB').save(buf, 'JPEG', quality=90)
                     buf.seek(0)
-                    result = cloudinary.uploader.upload(
+                    cloudinary.uploader.upload(
                         buf,
                         public_id='galeria/' + filename.rsplit('.', 1)[0],
                         resource_type='image',
@@ -60,7 +60,7 @@ def subir():
                 else:
                     archivo.stream.seek(0)
                     resource_type = 'video' if ext in ('mp4', 'mov', 'webm') else 'image'
-                    result = cloudinary.uploader.upload(
+                    cloudinary.uploader.upload(
                         archivo.stream,
                         public_id='galeria/' + filename.rsplit('.', 1)[0],
                         resource_type=resource_type,
@@ -145,42 +145,47 @@ def eliminar():
         print("ERROR al eliminar:", e)
         return jsonify({"ok": False, "error": str(e)}), 500
 
-MUSIC_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'music')
-
 @app.route("/subir-musica", methods=["POST"])
 def subir_musica():
     try:
         archivo = request.files.get("musica")
-        os.makedirs(MUSIC_FOLDER, exist_ok=True)
+        if not archivo:
+            return jsonify({"ok": False})
 
-        for f in os.listdir(MUSIC_FOLDER):
-            os.remove(os.path.join(MUSIC_FOLDER, f))
+        try:
+            cloudinary.uploader.destroy('musica/fondo', resource_type='video')
+        except:
+            pass
 
-        if archivo:
-            ruta = os.path.join(MUSIC_FOLDER, archivo.filename)
-            archivo.save(ruta)
-            return jsonify({"ok": True, "nombre": archivo.filename})
+        ext = archivo.filename.rsplit('.', 1)[-1].lower()
+        archivo.stream.seek(0)
+        cloudinary.uploader.upload(
+            archivo.stream,
+            public_id='musica/fondo',
+            resource_type='video',
+            overwrite=True,
+            format=ext
+        )
+        return jsonify({"ok": True, "nombre": archivo.filename})
 
-        return jsonify({"ok": False})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route("/musica")
 def musica():
     try:
-        os.makedirs(MUSIC_FOLDER, exist_ok=True)
-        archivos = os.listdir(MUSIC_FOLDER)
-        if archivos:
-            return jsonify({"nombre": archivos[0]})
-        return jsonify({"nombre": None})
+        cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME')
+        resultado = cloudinary.api.resource('musica/fondo', resource_type='video')
+        fmt = resultado.get('format', 'mp3')
+        url = f"https://res.cloudinary.com/{cloud_name}/video/upload/musica/fondo.{fmt}"
+        return jsonify({"url": url})
     except Exception as e:
-        return jsonify({"nombre": None})
+        return jsonify({"url": None})
 
 @app.route("/eliminar-musica", methods=["POST"])
 def eliminar_musica():
     try:
-        for f in os.listdir(MUSIC_FOLDER):
-            os.remove(os.path.join(MUSIC_FOLDER, f))
+        cloudinary.uploader.destroy('musica/fondo', resource_type='video')
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
