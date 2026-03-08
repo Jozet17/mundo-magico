@@ -575,6 +575,7 @@ function mostrarFin(callback) {
         opacity: 0;
         transition: opacity 0.8s ease;
         cursor: pointer;
+        overflow: hidden;
     `;
 
     overlay.innerHTML = `
@@ -588,6 +589,7 @@ function mostrarFin(callback) {
         animation: brilloTitulo 2s ease infinite alternate;
         letter-spacing: 8px;
         margin-bottom: 16px;
+        position: relative; z-index: 2;
     ">✨ FIN ✨</div>
     <div style="
         font-family: 'Georgia', serif;
@@ -595,6 +597,7 @@ function mostrarFin(callback) {
         color: rgba(255,255,255,0.5);
         letter-spacing: 2px;
         margin-top: 10px;
+        position: relative; z-index: 2;
     ">${eraAuto ? '' : 'toca para volver a empezar'}</div>
     <button onclick="event.stopPropagation(); abrirSubir();" style="
         margin-top: 30px;
@@ -613,8 +616,9 @@ function mostrarFin(callback) {
         justify-content: center;
         margin-left: auto;
         margin-right: auto;
+        position: relative; z-index: 2;
     ">+</button>
-    <div style="color:rgba(255,255,255,0.25); font-size:0.75rem; margin-top:8px; letter-spacing:1px;">
+    <div style="color:rgba(255,255,255,0.25); font-size:0.75rem; margin-top:8px; letter-spacing:1px; position: relative; z-index: 2;">
         agregar fotos / videos
     </div>
 `;
@@ -631,17 +635,17 @@ function mostrarFin(callback) {
         const star = document.createElement('div');
         star.innerHTML = ['★','✦','✧','💫','✨'][Math.floor(Math.random()*5)];
         star.style.cssText = `
-            position: fixed;
+            position: absolute;
             color: #fde68a;
             font-size: ${14 + Math.random() * 20}px;
-            left: ${Math.random() * 100}vw;
+            left: ${Math.random() * 100}%;
             top: -20px;
             pointer-events: none;
-            z-index: 1000;
+            z-index: 1;
             text-shadow: 0 0 10px #fbbf24;
             animation: estrellaFall ${3 + Math.random() * 4}s linear forwards;
         `;
-        document.body.appendChild(star);
+        overlay.appendChild(star);
         setTimeout(() => star.remove(), 7000);
     }, 150);
 
