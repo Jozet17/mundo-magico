@@ -32,29 +32,18 @@ def inicio():
 @app.route("/subir", methods=["POST"])
 def subir():
     try:
-        print("=== INICIANDO SUBIDA ===")
-        print("CLOUDINARY CLOUD_NAME:", os.environ.get('CLOUDINARY_CLOUD_NAME'))
-        print("CLOUDINARY API_KEY:", os.environ.get('CLOUDINARY_API_KEY'))
         from PIL import Image
 
         archivos = request.files.getlist("archivos")
         texto = request.form.get("texto", "")
         subidos = []
 
-        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-        textos_path = os.path.join(UPLOAD_FOLDER, 'textos.json')
-        if os.path.exists(textos_path):
-            with open(textos_path, 'r', encoding='utf-8') as f:
-                textos = json.load(f)
-        else:
-            textos = {}
-
         for archivo in archivos:
             if archivo and allowed_file(archivo.filename):
                 filename = archivo.filename
                 ext = filename.rsplit('.', 1)[-1].lower()
-                print(f"Subiendo archivo: {filename}, ext: {ext}")
+
+                context = f"texto={texto}" if texto else None
 
                 if ext in ('heic', 'heif'):
                     filename = filename.rsplit('.', 1)[0] + '.jpg'
@@ -62,26 +51,23 @@ def subir():
                     buf = io.BytesIO()
                     img.convert('RGB').save(buf, 'JPEG', quality=90)
                     buf.seek(0)
-                    cloudinary.uploader.upload(
+                    result = cloudinary.uploader.upload(
                         buf,
                         public_id='galeria/' + filename.rsplit('.', 1)[0],
-                        resource_type='image'
+                        resource_type='image',
+                        context=context
                     )
                 else:
                     archivo.stream.seek(0)
                     resource_type = 'video' if ext in ('mp4', 'mov', 'webm') else 'image'
-                    cloudinary.uploader.upload(
+                    result = cloudinary.uploader.upload(
                         archivo.stream,
                         public_id='galeria/' + filename.rsplit('.', 1)[0],
-                        resource_type=resource_type
+                        resource_type=resource_type,
+                        context=context
                     )
 
                 subidos.append(filename)
-                if texto:
-                    textos[filename] = texto
-
-        with open(textos_path, 'w', encoding='utf-8') as f:
-            json.dump(textos, f, ensure_ascii=False)
 
         return jsonify({"ok": True, "archivos": subidos})
 
@@ -94,26 +80,21 @@ def subir():
 def media():
     try:
         archivos = []
-
-        textos_path = os.path.join(UPLOAD_FOLDER, 'textos.json')
-        textos = {}
-        if os.path.exists(textos_path):
-            with open(textos_path, 'r', encoding='utf-8') as f:
-                textos = json.load(f)
-
         cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME')
 
         resultado = cloudinary.api.resources(
             type='upload',
             prefix='galeria/',
             max_results=500,
-            resource_type='image'
+            resource_type='image',
+            context=True
         )
         resultado_video = cloudinary.api.resources(
             type='upload',
             prefix='galeria/',
             max_results=500,
-            resource_type='video'
+            resource_type='video',
+            context=True
         )
 
         todos = resultado.get('resources', []) + resultado_video.get('resources', [])
@@ -124,10 +105,9 @@ def media():
             nombre = public_id.replace('galeria/', '') + '.' + fmt
             resource_type = recurso['resource_type']
             fecha = recurso['created_at']
-            texto = textos.get(nombre, '')
+            texto = recurso.get('context', {}).get('custom', {}).get('texto', '')
             tipo = 'video' if resource_type == 'video' else 'foto'
 
-            # URL optimizada compatible con Samsung Chrome
             if tipo == 'video':
                 url = f"https://res.cloudinary.com/{cloud_name}/video/upload/q_auto/{public_id}.{fmt}"
             else:
@@ -222,18 +202,18 @@ def guardar_texto():
         data = request.get_json()
         nombre = data.get("nombre")
         texto = data.get("texto", "")
-        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-        textos_path = os.path.join(UPLOAD_FOLDER, 'textos.json')
-        textos = {}
-        if os.path.exists(textos_path):
-            with open(textos_path, 'r', encoding='utf-8') as f:
-                textos = json.load(f)
-        textos[nombre] = texto
-        with open(textos_path, 'w', encoding='utf-8') as f:
-            json.dump(textos, f, ensure_ascii=False)
+        public_id = 'galeria/' + nombre.rsplit('.', 1)[0]
+        ext = nombre.rsplit('.', 1)[-1].lower()
+        resource_type = 'video' if ext in ('mp4', 'mov', 'webm') else 'image'
+
+        cloudinary.uploader.add_context(
+            f"texto={texto}",
+            public_ids=[public_id],
+            resource_type=resource_type
+        )
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
-    
+
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)
