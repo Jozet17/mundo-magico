@@ -1,9 +1,9 @@
 import os
-import json
 import io
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
+from urllib.parse import quote, unquote
 from flask import Flask, render_template, request, jsonify
 from pillow_heif import register_heif_opener
 register_heif_opener()
@@ -43,7 +43,7 @@ def subir():
                 filename = archivo.filename
                 ext = filename.rsplit('.', 1)[-1].lower()
 
-                context = f"texto={texto}" if texto else None
+                context = f"texto={quote(texto, safe='')}" if texto else None
 
                 if ext in ('heic', 'heif'):
                     filename = filename.rsplit('.', 1)[0] + '.jpg'
@@ -105,7 +105,8 @@ def media():
             nombre = public_id.replace('galeria/', '') + '.' + fmt
             resource_type = recurso['resource_type']
             fecha = recurso['created_at']
-            texto = recurso.get('context', {}).get('custom', {}).get('texto', '')
+            texto_raw = recurso.get('context', {}).get('custom', {}).get('texto', '')
+            texto = unquote(texto_raw)
             tipo = 'video' if resource_type == 'video' else 'foto'
 
             if tipo == 'video':
@@ -212,7 +213,7 @@ def guardar_texto():
         resource_type = 'video' if ext in ('mp4', 'mov', 'webm') else 'image'
 
         cloudinary.uploader.add_context(
-            f"texto={texto}",
+            f"texto={quote(texto, safe='')}",
             public_ids=[public_id],
             resource_type=resource_type
         )
